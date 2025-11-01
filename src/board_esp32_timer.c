@@ -16,11 +16,18 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "../board.h"
+/**
+ * APB_CLK = 80,000,000Hz
+ * 
+ * freq = desired frequency (Hz)
+ * 
+ * freq = APB_CLK / (scalar * timerTicks)
+ * 
+ * 64-bit counter
+ * 16-bit scalar
+ */
 
-#ifdef ESP32DEVC
-
-#include "../../hard_timer.h"
+#include <hard_timer.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -283,5 +290,3 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 	return false;
 }
-
-#endif

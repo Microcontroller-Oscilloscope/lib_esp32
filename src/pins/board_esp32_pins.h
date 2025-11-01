@@ -258,3 +258,12 @@
 #ifndef LED_COUNT
 	#define LED_COUNT 0
 #endif
+
+#ifndef EXTERNAL_LED_PIN
+	#define EXTERNAL_STATUS_LED_PIN 23 // pin for external status LED
+#endif
+
+// number of pins
+#ifndef NUM_IO_PINS
+	#define NUM_IO_PINS 32 // number pins available to controller
+#endif

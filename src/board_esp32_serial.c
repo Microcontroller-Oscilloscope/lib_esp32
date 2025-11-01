@@ -16,16 +16,10 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "../board.h"
-
-#if defined(ESP32DEVC) && defined(SERIAL_PRINTF)
-
-#include "../../comm/hard_serial/hard_serial.h"
+#include <comm/hard_serial/hard_serial.h>
 
 #include <driver/uart.h>
 
 void hardPrintBegin(uint32_t baud) {
 	uart_set_baudrate(UART_NUM_0, BAUD_RATE);
 }
-
-#endif

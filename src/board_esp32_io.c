@@ -16,11 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "../board.h"
-
-#if defined(ESP32DEVC) && defined(IO_INTERNAL)
-
-#include "../../board_common.h"
+#include <osc_common.h>
 
 #include <driver/gpio.h>
 
@@ -50,5 +46,3 @@ void hardPinMode(pin_t pin, enum pinModeState mode) {
 void hardDigitalWrite(pin_t pin, enum digitalState value) {
 	gpio_set_level(pin, value);
 }
-
-#endif

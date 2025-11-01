@@ -16,13 +16,10 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "../board.h"
-
-#if defined(ESP32DEVC) && defined(NVM_INTERNAL)
-
-#include "../../board_common.h"
-#include "../../nvm/generic_nvm.h"
-#include "../../comm/hard_serial/hard_serial.h"
+#include <board.h>
+#include <osc_common.h>
+#include <nvm/nvm.h>
+#include <comm/hard_serial/hard_serial.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -180,7 +177,7 @@ enum NVMDefaultCode nvmSetDefaults(void) {
  */
 void keyToChar(nvm_size_t key, char* keyStr) {
 	for (uint8_t i = 0U; i < NVM_MAX_SIZE_BYTES; i++) {
-		uint8_t subKey = (key >> (8*i)) & (ONE_BYTE);
+		uint8_t subKey = (key >> (8*i));
 		keyStr[i] = subKey;
 	}
 	keyStr[NVM_MAX_SIZE_BYTES] = END_OF_CHAR;
@@ -579,5 +576,3 @@ bool nvmGetDouble(nvm_size_t key, double *value, bool canDefault) {
 
 	return false;
 }
-
-#endif

@@ -16,11 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "../board.h"
-
-#if defined(ESP32DEVC) && defined(DELAY_INTERNAL)
-
-#include "../../board_common.h"
+#include <osc_common.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -32,5 +28,3 @@ void hardDelayMS(uint32_t delayAmount) {
 void hardDelayUS(uint32_t delayAmount) {
 	ets_delay_us(delayAmount);
 }
-
-#endif

@@ -1,5 +1,5 @@
 /*
-	board_esp32_thread.c - thread configuration for Espressif ESP32
+	board.h - configuration flags for Espressif ESP32
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,31 +16,21 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <osc_common.h>
+#ifndef BOARD_H
+#define BOARD_H
 
-#include <freertos/FreeRTOS.h>
-#include <freertos/portmacro.h>
-#include <freertos/task.h>
-#include <esp_system.h>
+/****************************
+ * NVM Config
+****************************/
 
-static portMUX_TYPE threadSpinLock = portMUX_INITIALIZER_UNLOCKED;
+#ifndef NVM_SIZE
+	#define NVM_SIZE 4096 // size in bytes of NVM
+#endif
 
-bool startThreadSafety(void) {
+/****************************
+ * Test Timer Config
+****************************/
 
-	if (threadSpinLock.count == 0) {
-		taskENTER_CRITICAL(&threadSpinLock);
-		return true;
-	}
+#define TEST_FAST_FREQ 290000 // target frequency
 
-	return false;
-}
-
-bool endThreadSafety(void) {
-
-	if (threadSpinLock.count == 1) {
-		taskEXIT_CRITICAL(&threadSpinLock);
-		return true;
-	}
-
-	return false;
-}
+#endif
