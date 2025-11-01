@@ -16,7 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <osc_common.h>
+#include <osc_common/common_io.h>
 
 #include <driver/gpio.h>
 

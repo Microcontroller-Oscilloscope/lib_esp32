@@ -27,7 +27,7 @@
  * 16-bit scalar
  */
 
-#include <hard_timer.h>
+#include <osc_common/common_timer.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>

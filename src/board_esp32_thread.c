@@ -16,7 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <osc_common.h>
+#include <osc_common/common_thread.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>

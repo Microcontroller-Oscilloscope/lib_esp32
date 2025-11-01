@@ -17,7 +17,6 @@
 */
 
 #include <board.h>
-#include <osc_common.h>
 #include <nvm/nvm.h>
 #include <comm/hard_serial/hard_serial.h>
 
