@@ -17,6 +17,8 @@
 */
 
 #include <osc_common/common_io.h>
+#include <status/status.h>
+#include "pins/pins.h"
 
 #include <driver/gpio.h>
 
@@ -43,6 +45,15 @@ void hardPinMode(pin_t pin, enum pinModeState mode) {
 	}
 }
 
-void hardDigitalWrite(pin_t pin, enum digitalState value) {
+void hardDigitalWrite(pin_t pin, uint8_t value) {
 	gpio_set_level(pin, value);
+}
+
+bool getStatusPin(pin_t *pin, enum statusPin status) {
+	if (status == STATUS_PIN_EXTERNAL) {
+		*pin = EXTERNAL_STATUS_LED_PIN;
+		return false;
+	}
+	*pin = PIN_T_INVALID;
+	return false;
 }
