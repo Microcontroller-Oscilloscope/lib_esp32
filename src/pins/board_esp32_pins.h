@@ -17,37 +17,37 @@
 */
 
 /**
- *                             +------------+
- *                             |            |
- *                          +--+            +--+
- *                   3V3   1|                  |38  GND
- *                    EN   2|                  |37  (D23, COPI0)
- *        (I36, A1_0) VP   3|                  |36  (D22, SCL0)
- *        (I39, A1_3) VN   4|                  |35  (D1, TX0)
- *           (I34, A1_6)   5|                  |34  (D3, RX0)
- *           (I35, A1_7)   6|                  |33  (D21, SDA0)
- *    (D32, A1_4, XTALP)   7|                  |32  GND
- *    (D33, A1_5, XTALN)   8|                  |31  (D19, CIPO0)
- *     (D25, A2_8, DAC1)   9|                  |30  (D18, SCK0)
- *     (D26, A2_9, DAC2)  10|                  |29  (D5, CS0)
- *           (D27, A2_7)  11|                  |28  (D17, TX2)
- *     (D14, A2_6, SCK1)  12|                  |27  (D16, RX2)
- *    (D12, A2_5, CIPO1)  13|                  |26  (D4, A2_0)
- *                   GND  14|                  |25  (D0, A2_1)
- *    (D13, A2_4, COPI1)  15|                  |24  (D2, A2_2)
- *             (D9, RX1)  16|                  |23  (D15, A2_3, CS1)
- *            (D10, TX1)  17|                  |22  (D8)
- *             (D11) CMD  18|                  |21  (D7)
- *                    5V  19|      +----+      |20  CLK (D6)
- *                          +------|    |------+
- *                                 +----+
+ *                               +------------+
+ *                               |            |
+ *                            +--+            +--+
+ *                    3V3    1|                  |38   GND
+ *                     EN    2|                  |37   (D23, COPI0)
+ *         (I36, A1_0) VP    3|                  |36   (D22, SCL0)
+ *         (I39, A1_3) VN    4|                  |35   (D1, TX0)
+ *            (I34, A1_6)    5|                  |+34   (D3, RX0)
+ *            (I35, A1_7)    6|                  |33   (D21, SDA0)
+ *     (D32, A1_4, XTALP)    7|                  |32   GND
+ *     (D33, A1_5, XTALN)    8|                  |31   (D19, CIPO0)
+ *      (D25, A2_8, DAC1)    9|                  |30   (D18, SCK0)
+ *      (D26, A2_9, DAC2)   10|                  |*29  (D5, CS0)
+ *            (D27, A2_7)   11|                  |28   (D17, TX2)
+ *      (D14, A2_6, SCK1)  +12|                  |27   (D16, RX2)
+ *    (D12, A2_5, CIPO1)   *13|                  |*26  (D4, A2_0)
+ *                    GND   14|                  |*25  (D0, A2_1)
+ *     (D13, A2_4, COPI1)   15|                  |*24  (D2, A2_2)
+ *              (D9, RX1)  !16|                  |*23  (D15, A2_3, CS1)
+ *             (D10, TX1)  !17|                  |!22  (D8)
+ *              (D11) CMD  !18|                  |!21  (D7)
+ *                     5V   19|      +----+      |!20  CLK (D6)
+ *                            +------|    |------+
+ *                                   +----+
  * 
  * All digital IO pins support PWM
  * I pins are input only
- * Pins 16-18, 20-22 are tied to board flash and may cause issues
- * Pins D0,D2,D4,D5,D12,D15 are strapping pins used to boot/flash
+ * !: Pins 16-18, 20-22 are tied to board flash and may cause issues
+ * *: Pins D0,D2,D4,D5,D12,D15 are strapping pins used to boot/flash
  * A2 cant be used while wifi or bluetooth are enabled
- * D0,D3,D5,D6-11,D14,D15 outputs HIGH and/or PWM when booting
+ * +: D0,D3,D5,D6-11,D14,D15 outputs HIGH and/or PWM when booting
  */
 
 #ifdef PLATFORMIO

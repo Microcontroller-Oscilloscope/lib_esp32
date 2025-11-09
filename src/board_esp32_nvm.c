@@ -16,7 +16,6 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <board.h>
 #include <nvm/nvm.h>
 #include <comm/hard_serial/hard_serial.h>
 
@@ -51,6 +50,9 @@ enum NVMStartCode nvmInit(nvm_size_t setNVMSize) {
 	if (setNVMSize == (nvm_size_t)DEFAULT_NVM_SIZE) {
 		return NVM_INVALID_SIZE;
 	}
+	if (setNVMSize > nvmMaxSize()) {
+		return NVM_INVALID_SIZE;
+	}
 
 	THREAD_LOCK();
 
@@ -70,14 +72,8 @@ enum NVMStartCode nvmInit(nvm_size_t setNVMSize) {
 	return NVM_OK;
 }
 
-bool nvmMaxSize(nvm_size_t *size) {
-	if (nvmBegan) {
-		*size = NVM_MAX_SIZE;
-		return true;
-	}
-
-	*size = DEFAULT_NVM_SIZE;
-	return false;
+nvm_size_t nvmMaxSize(void) {
+	return FLASH_NVM_SIZE;
 }
 
 /**
@@ -120,21 +116,13 @@ bool nvmClear(void) {
 
 enum NVMDefaultCode nvmSetDefaults(void) {
 
-	THREAD_LOCK();
+	if (!nvmBegan) {
+		return NVM_DEFAULT_NOT_STARTED;
+	}
 
-	// ensures NVM_SIZE isn't too big for microcontroller
-	nvm_size_t nvmMaxValue;
-	if (nvmMaxSize(&nvmMaxValue)) {
-		if (NVM_SIZE > nvmMaxValue) {
-			THREAD_UNLOCK();
-			return NVM_DEFAULT_SIZE_TOO_BIG;
-		}
-	}
-	else {
-		THREAD_UNLOCK();
-		// if nvm not started or unable to get size
-		return NVM_DEFAULT_FAIL_MAX_SIZE;
-	}
+	nvm_size_t nvmMaxValue = nvmMaxSize();
+
+	THREAD_LOCK();
 
 	// ensures clear works
 	if (!nvmClear()) {
@@ -151,7 +139,7 @@ enum NVMDefaultCode nvmSetDefaults(void) {
 	THREAD_UNLOCK();
 
 	// restarts nvm for operations
-	enum NVMStartCode startCode = nvmInit(NVM_SIZE);
+	enum NVMStartCode startCode = nvmInit(nvmMaxValue);
 	if (startCode != NVM_OK) {
 		return NVM_DEFAULT_FAIL_INIT;
 	}
