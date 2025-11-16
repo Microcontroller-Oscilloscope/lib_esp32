@@ -32,15 +32,17 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_system.h>
-#include <freertos/timers.h>
-#include <driver/timer.h>
-#include <esp_intr_alloc.h>
 
 #define TIMER_COUNT_ZERO 0U // value for setting timer tick count to 0
 #define SCALAR_MAX UINT16_MAX // max value for timer scalar
 
 typedef uint16_t prescalar_t; // pre scalar type
 typedef uint64_t timertick_t; // timer tick type
+
+#if ESP_IDF_VERSION_MAJOR == 4
+
+#include <driver/timer.h>
+#include <esp_intr_alloc.h>
 
 typedef struct hw_timer_s {
 	uint8_t group; // timer group
@@ -54,8 +56,6 @@ static hard_timer_group_t timerGroups[4] = {
 	{.group=0, .num=1}, // timer2
 	{.group=1, .num=1}, // timer3
 };
-
-uint8_t claimed = 0U; // stores whether timers were claimed or not
 
 // hardware timer pointers
 hard_timer_group_t *timers[] = {
@@ -73,6 +73,49 @@ hard_timer_group_t *timers[] = {
 	#endif
 };
 
+typedef hard_timer_group_t** timer_ptr_t;
+
+#elif ESP_IDF_VERSION_MAJOR == 5
+
+#include <soc/clk_tree_defs.h>
+#include <driver/gptimer_types.h>
+#include <hal/timer_types.h>
+#include <driver/gptimer.h>
+
+#if NUM_TIMERS >= 1
+	gptimer_handle_t handler0 = NULL;
+#endif
+#if NUM_TIMERS >= 2
+	gptimer_handle_t handler1 = NULL;
+#endif
+#if NUM_TIMERS >= 3
+	gptimer_handle_t handler2 = NULL;
+#endif
+#if NUM_TIMERS >= 4
+	gptimer_handle_t handler3 = NULL;
+#endif
+
+gptimer_handle_t *timers[] = {
+	#if NUM_TIMERS >= 1
+		&handler0,
+	#endif
+	#if NUM_TIMERS >= 2
+		&handler1,
+	#endif
+	#if NUM_TIMERS >= 3
+		&handler2,
+	#endif
+	#if NUM_TIMERS >= 4
+		&handler3,
+	#endif
+};
+
+typedef gptimer_handle_t** timer_ptr_t;
+
+#endif
+
+uint8_t claimed = 0U; // stores whether timers were claimed or not
+
 /**
  * Scales input priority
  * 
@@ -83,7 +126,20 @@ hard_timer_group_t *timers[] = {
  * @return priority flag for 'intr_alloc_flags' when calling 'timer_isr_callback_add'
  */
 int setPriority(timer_priority_t priority) {
-	return (1 << (priority / (UINT8_MAX / 3)));
+	#ifdef PLATFORMIO
+		// use input priority for PlatformIO
+		int adjustment = priority / (UINT8_MAX / 3);
+		#if ESP_IDF_VERSION_MAJOR == 4
+			return (1 << adjustment);
+		#elif ESP_IDF_VERSION_MAJOR == 5
+			return adjustment;
+		#else
+			return 0;
+		#endif
+	#else
+		// use default priority with esp-idf
+		return 0;
+	#endif
 }
 
 /**
@@ -93,7 +149,7 @@ int setPriority(timer_priority_t priority) {
  * 
  * @return pointer to timer selected
  */
-hard_timer_group_t** getTimer(hard_timer_t timer) {
+timer_ptr_t getTimer(hard_timer_t timer) {
 
 	if (timer == HARD_TIMER_INVALID) {
 		return NULL;
@@ -155,7 +211,7 @@ bool hardTimerClaimed(hard_timer_t timer) {
 	if (timer == HARD_TIMER_INVALID) {
 		return false;
 	}
-	return !!(claimed & (1 << (timerGroups[timer].group + timerGroups[timer].num * 2)));
+	return !!(claimed & (1 << timer));
 }
 
 /**
@@ -212,14 +268,23 @@ enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, 
 }
 
 bool hardTimerStarted(hard_timer_t timer) {
-	hard_timer_group_t** timerPtr = getTimer(timer);
+
+	timer_ptr_t timerPtr = getTimer(timer);
 
 	if (timerPtr == NULL) {
 		return false;
 	}
-	if (*timerPtr != NULL) {
-		return true;
-	}
+
+	#if ESP_IDF_VERSION_MAJOR == 4
+		if (*timerPtr != NULL) {
+			return true;
+		}
+	#elif ESP_IDF_VERSION_MAJOR == 5
+		if (**timerPtr != NULL) {
+			return true;
+		}
+	#endif
+
 	return false;
 }
 
@@ -227,23 +292,42 @@ bool cancelHardTimer(hard_timer_t timer) {
 	
 	if (hardTimerStarted(timer)) {
 
-		hard_timer_group_t** timerPtr = getTimer(timer);
+		timer_ptr_t timerPtr = getTimer(timer);
 
-		// cancels timer
-		timer_set_alarm((*timerPtr) -> group, (*timerPtr) -> num, false);
-		timer_pause((*timerPtr) -> group, (*timerPtr) -> num);
-		timer_set_counter_value((*timerPtr) -> group, (*timerPtr) -> num, TIMER_COUNT_ZERO);
+		#if ESP_IDF_VERSION_MAJOR == 4
+			// cancels timer
+			timer_set_alarm((*timerPtr) -> group, (*timerPtr) -> num, false);
+			timer_pause((*timerPtr) -> group, (*timerPtr) -> num);
+			timer_set_counter_value((*timerPtr) -> group, (*timerPtr) -> num, TIMER_COUNT_ZERO);
 
-		// deconstructs timer
-		timer_isr_callback_remove((*timerPtr) -> group, (*timerPtr) -> num);
-		timer_deinit((*timerPtr) -> group, (*timerPtr) -> num);
-		*timerPtr = NULL;
+			// deconstructs timer
+			timer_isr_callback_remove((*timerPtr) -> group, (*timerPtr) -> num);
+			timer_deinit((*timerPtr) -> group, (*timerPtr) -> num);
 
-		return true;
+			*timerPtr = NULL;
+			return true;
+		#elif ESP_IDF_VERSION_MAJOR == 5
+
+			gptimer_stop(**timerPtr);
+			gptimer_disable(**timerPtr);
+			gptimer_del_timer(**timerPtr);
+
+			**timerPtr = NULL;
+			return true;
+		#endif
 	}
 
 	return false;
 }
+
+#if ESP_IDF_VERSION_MAJOR == 5
+
+static bool timerCallback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
+	((void(*)())user_ctx)();
+	return false;
+}
+
+#endif
 
 bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t function, timer_priority_t priority) {
 	
@@ -263,29 +347,76 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 	if (!hardTimerStarted(*timer)) {
 
-		hard_timer_group_t** timerPtr = getTimer(*timer);
-
-		// init timer
-		timer_config_t config = {
-			.divider = scalar,
-			.counter_dir = true,
-			.counter_en = TIMER_PAUSE,
-			.alarm_en = TIMER_ALARM_DIS,
-			.auto_reload = false,
-		};
-		*timerPtr = &timerGroups[*timer];
+		timer_ptr_t timerPtr = getTimer(*timer);
 		
-		timer_init((*timerPtr) -> group, (*timerPtr) -> num, &config);
-		timer_set_counter_value((*timerPtr) -> group, (*timerPtr) -> num, TIMER_COUNT_ZERO);
-		timer_start((*timerPtr) -> group, (*timerPtr) -> num);
-		timer_isr_callback_add((*timerPtr) -> group, (*timerPtr) -> num, function, NULL, setPriority(priority));
+		#if ESP_IDF_VERSION_MAJOR == 4
+			// init timer
+			timer_config_t config = {
+				.divider = scalar,
+				.counter_dir = true,
+				.counter_en = TIMER_PAUSE,
+				.alarm_en = TIMER_ALARM_DIS,
+				.auto_reload = false,
+			};
+			*timerPtr = &timerGroups[*timer];
+			
+			timer_init((*timerPtr) -> group, (*timerPtr) -> num, &config);
+			timer_set_counter_value((*timerPtr) -> group, (*timerPtr) -> num, TIMER_COUNT_ZERO);
+			timer_start((*timerPtr) -> group, (*timerPtr) -> num);
+			timer_isr_callback_add((*timerPtr) -> group, (*timerPtr) -> num, function, NULL, setPriority(priority));
 
-		// run timer
-		timer_set_alarm_value((*timerPtr) -> group, (*timerPtr) -> num, timerTicks);
-		timer_set_auto_reload((*timerPtr) -> group, (*timerPtr) -> num, true);
-		timer_set_alarm((*timerPtr) -> group, (*timerPtr) -> num, true);
-		timer_start((*timerPtr) -> group, (*timerPtr) -> num);
-		return true;
+			// run timer
+			timer_set_alarm_value((*timerPtr) -> group, (*timerPtr) -> num, timerTicks);
+			timer_set_auto_reload((*timerPtr) -> group, (*timerPtr) -> num, true);
+			timer_set_alarm((*timerPtr) -> group, (*timerPtr) -> num, true);
+			timer_start((*timerPtr) -> group, (*timerPtr) -> num);
+
+			return true;
+
+		#elif ESP_IDF_VERSION_MAJOR == 5
+
+			uint64_t count = 1;
+			freq_t tempFreq = *freq;
+
+			while (tempFreq < FREQ_MIN) {
+				tempFreq *= 2;
+				count *= 2;
+			}
+
+			// timer config
+			gptimer_config_t config = {
+				.clk_src = GPTIMER_CLK_SRC_DEFAULT,
+				.direction = GPTIMER_COUNT_UP,
+				.resolution_hz = tempFreq,
+				.intr_priority = setPriority(priority),
+			};
+
+			// function config
+			gptimer_alarm_config_t configAlarm = {
+				.reload_count = 0,
+				.alarm_count = count,
+				.flags.auto_reload_on_alarm = true,
+			};
+
+			// callback config
+			gptimer_event_callbacks_t configCallback = {
+				.on_alarm = timerCallback,
+			};
+
+			// creates new timer
+			gptimer_new_timer(&config, *timerPtr);
+
+			// sets up callback function
+			gptimer_set_alarm_action(**timerPtr, &configAlarm);
+			gptimer_register_event_callbacks(**timerPtr, &configCallback, function);
+
+			// starts timer
+			gptimer_enable(**timerPtr);
+			gptimer_start(**timerPtr);
+
+			return true;
+
+		#endif
 	}
 
 	return false;

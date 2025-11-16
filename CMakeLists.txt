@@ -16,7 +16,7 @@
 
 idf_component_register(
     SRC_DIRS "src"
-    REQUIRES nvs_flash esp_timer unity Core
+    REQUIRES driver nvs_flash esp_timer esp_rom unity Core
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-expansion-to-defined)

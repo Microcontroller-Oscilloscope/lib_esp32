@@ -26,5 +26,10 @@ void hardDelayMS(uint32_t delayAmount) {
 }
 
 void hardDelayUS(uint32_t delayAmount) {
-	ets_delay_us(delayAmount);
+
+	#if ESP_IDF_VERSION_MAJOR == 4
+		ets_delay_us(delayAmount);
+	#elif ESP_IDF_VERSION_MAJOR == 5
+		esp_rom_delay_us(delayAmount);
+	#endif
 }
