@@ -112,6 +112,9 @@ gptimer_handle_t *timers[] = {
 
 typedef gptimer_handle_t** timer_ptr_t;
 
+// gptimer requires this as minimum freq
+#define HARD_TIMER_FREQ_MIN 1221
+
 #endif
 
 uint8_t claimed = 0U; // stores whether timers were claimed or not
@@ -320,21 +323,47 @@ bool cancelHardTimer(hard_timer_t timer) {
 	return false;
 }
 
-#if ESP_IDF_VERSION_MAJOR == 5
+#if ESP_IDF_VERSION_MAJOR == 4
 
-static bool timerCallback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx) {
-	((void(*)())user_ctx)();
-	return false;
-}
+#define TIMER_CALLBACK_PROTOTYPE(name, callback) \
+	static bool name(void *params) { \
+		((void(*)())callback)(params); \
+		return false; \
+	}
+
+#elif ESP_IDF_VERSION_MAJOR == 5
+
+#define TIMER_CALLBACK_PROTOTYPE(name, callback) \
+	static bool name(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *params) { \
+		((void(*)())callback)(params); \
+		return false; \
+	}
 
 #endif
 
-bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t function, timer_priority_t priority) {
+#if NUM_TIMERS >= 1
+	hard_timer_function_ptr_t timerFunc0;
+	TIMER_CALLBACK_PROTOTYPE(timerCallback0, timerFunc0)
+#endif
+#if NUM_TIMERS >= 2
+	hard_timer_function_ptr_t timerFunc1;
+	TIMER_CALLBACK_PROTOTYPE(timerCallback1, timerFunc1)
+#endif
+#if NUM_TIMERS >= 3
+	hard_timer_function_ptr_t timerFunc2;
+	TIMER_CALLBACK_PROTOTYPE(timerCallback2, timerFunc2)
+#endif
+#if NUM_TIMERS >= 4
+	hard_timer_function_ptr_t timerFunc3;
+	TIMER_CALLBACK_PROTOTYPE(timerCallback3, timerFunc3)
+#endif
+
+bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t function, void* params, timer_priority_t priority) {
 	
 	if (function == NULL || freq == NULL || timer == NULL) {
 		return false;
 	}
-	if (*freq == (freq_t)0 || *freq > FREQ_MAX) {
+	if (*freq == (freq_t)0 || *freq > HARD_TIMER_FREQ_MAX) {
 		return false;
 	}
 
@@ -348,6 +377,37 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 	if (!hardTimerStarted(*timer)) {
 
 		timer_ptr_t timerPtr = getTimer(*timer);
+
+		#if ESP_IDF_VERSION_MAJOR == 4
+			timer_isr_t callback;
+		#elif ESP_IDF_VERSION_MAJOR == 5
+			gptimer_alarm_cb_t callback;
+		#endif
+
+		#if NUM_TIMERS >= 1
+			if (*timer == HARD_TIMER0) {
+				callback = timerCallback0;
+				timerFunc0 = function;
+			}
+		#endif
+		#if NUM_TIMERS >= 2
+			if (*timer == HARD_TIMER1) {
+				callback = timerCallback1;
+				timerFunc1 = function;
+			}
+		#endif
+		#if NUM_TIMERS >= 3
+			if (*timer == HARD_TIMER2) {
+				callback = timerCallback2;
+				timerFunc2 = function;
+			}
+		#endif
+		#if NUM_TIMERS >= 4
+			if (*timer == HARD_TIMER3) {
+				callback = timerCallback3;
+				timerFunc3 = function;
+			}
+		#endif
 		
 		#if ESP_IDF_VERSION_MAJOR == 4
 			// init timer
@@ -363,7 +423,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 			timer_init((*timerPtr) -> group, (*timerPtr) -> num, &config);
 			timer_set_counter_value((*timerPtr) -> group, (*timerPtr) -> num, TIMER_COUNT_ZERO);
 			timer_start((*timerPtr) -> group, (*timerPtr) -> num);
-			timer_isr_callback_add((*timerPtr) -> group, (*timerPtr) -> num, function, NULL, setPriority(priority));
+			timer_isr_callback_add((*timerPtr) -> group, (*timerPtr) -> num, callback, params, setPriority(priority));
 
 			// run timer
 			timer_set_alarm_value((*timerPtr) -> group, (*timerPtr) -> num, timerTicks);
@@ -378,7 +438,8 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 			uint64_t count = 1;
 			freq_t tempFreq = *freq;
 
-			while (tempFreq < FREQ_MIN) {
+			// adjusts frequency to be above min
+			while (tempFreq < HARD_TIMER_FREQ_MIN) {
 				tempFreq *= 2;
 				count *= 2;
 			}
@@ -400,7 +461,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 			// callback config
 			gptimer_event_callbacks_t configCallback = {
-				.on_alarm = timerCallback,
+				.on_alarm = callback,
 			};
 
 			// creates new timer
@@ -408,7 +469,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 			// sets up callback function
 			gptimer_set_alarm_action(**timerPtr, &configAlarm);
-			gptimer_register_event_callbacks(**timerPtr, &configCallback, function);
+			gptimer_register_event_callbacks(**timerPtr, &configCallback, params);
 
 			// starts timer
 			gptimer_enable(**timerPtr);
