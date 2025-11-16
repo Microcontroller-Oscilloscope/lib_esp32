@@ -323,41 +323,6 @@ bool cancelHardTimer(hard_timer_t timer) {
 	return false;
 }
 
-#if ESP_IDF_VERSION_MAJOR == 4
-
-#define TIMER_CALLBACK_PROTOTYPE(name, callback) \
-	static bool name(void *params) { \
-		((void(*)())callback)(params); \
-		return false; \
-	}
-
-#elif ESP_IDF_VERSION_MAJOR == 5
-
-#define TIMER_CALLBACK_PROTOTYPE(name, callback) \
-	static bool name(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *params) { \
-		((void(*)())callback)(params); \
-		return false; \
-	}
-
-#endif
-
-#if NUM_TIMERS >= 1
-	hard_timer_function_ptr_t timerFunc0;
-	TIMER_CALLBACK_PROTOTYPE(timerCallback0, timerFunc0)
-#endif
-#if NUM_TIMERS >= 2
-	hard_timer_function_ptr_t timerFunc1;
-	TIMER_CALLBACK_PROTOTYPE(timerCallback1, timerFunc1)
-#endif
-#if NUM_TIMERS >= 3
-	hard_timer_function_ptr_t timerFunc2;
-	TIMER_CALLBACK_PROTOTYPE(timerCallback2, timerFunc2)
-#endif
-#if NUM_TIMERS >= 4
-	hard_timer_function_ptr_t timerFunc3;
-	TIMER_CALLBACK_PROTOTYPE(timerCallback3, timerFunc3)
-#endif
-
 bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t function, void* params, timer_priority_t priority) {
 	
 	if (function == NULL || freq == NULL || timer == NULL) {
@@ -378,36 +343,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 		timer_ptr_t timerPtr = getTimer(*timer);
 
-		#if ESP_IDF_VERSION_MAJOR == 4
-			timer_isr_t callback;
-		#elif ESP_IDF_VERSION_MAJOR == 5
-			gptimer_alarm_cb_t callback;
-		#endif
-
-		#if NUM_TIMERS >= 1
-			if (*timer == HARD_TIMER0) {
-				callback = timerCallback0;
-				timerFunc0 = function;
-			}
-		#endif
-		#if NUM_TIMERS >= 2
-			if (*timer == HARD_TIMER1) {
-				callback = timerCallback1;
-				timerFunc1 = function;
-			}
-		#endif
-		#if NUM_TIMERS >= 3
-			if (*timer == HARD_TIMER2) {
-				callback = timerCallback2;
-				timerFunc2 = function;
-			}
-		#endif
-		#if NUM_TIMERS >= 4
-			if (*timer == HARD_TIMER3) {
-				callback = timerCallback3;
-				timerFunc3 = function;
-			}
-		#endif
+		setHardTimerFunction(*timer, function, params);
 		
 		#if ESP_IDF_VERSION_MAJOR == 4
 			// init timer
@@ -423,7 +359,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 			timer_init((*timerPtr) -> group, (*timerPtr) -> num, &config);
 			timer_set_counter_value((*timerPtr) -> group, (*timerPtr) -> num, TIMER_COUNT_ZERO);
 			timer_start((*timerPtr) -> group, (*timerPtr) -> num);
-			timer_isr_callback_add((*timerPtr) -> group, (*timerPtr) -> num, callback, params, setPriority(priority));
+			timer_isr_callback_add((*timerPtr) -> group, (*timerPtr) -> num, getHardTimerCallback(*timer), params, setPriority(priority));
 
 			// run timer
 			timer_set_alarm_value((*timerPtr) -> group, (*timerPtr) -> num, timerTicks);
@@ -461,7 +397,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 			// callback config
 			gptimer_event_callbacks_t configCallback = {
-				.on_alarm = callback,
+				.on_alarm = getHardTimerCallback(*timer),
 			};
 
 			// creates new timer
